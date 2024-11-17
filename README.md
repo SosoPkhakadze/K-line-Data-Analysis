@@ -19,9 +19,15 @@ This project uses the following libraries:
 - `threading`: For running background tasks.
 - `time`: To manage sleep intervals in background tasks.
 
+
 You can install the required dependencies using the following command:
 
  ''' pip install -r requirements.txt '''
+
+
+you can run the app using the following command
+
+''' python app.py '''
 
 
 How code works:
