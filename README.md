@@ -30,6 +30,9 @@ you can run the app using the following command
 ''' python app.py '''
 
 
+
+
+
 How code works:
 
 The Flask web service retrieves cryptocurrency data from the Binance API, calculates technical indicators such as MACD (Moving Average Convergence Divergence) and RSI (Relative Strength Index), and stores the results in an SQLite database. Users can request this data and the calculated indicators via various API endpoints.
