@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>K-line Data Chart</title>
+    <script src="https://unpkg.com/lightweight-charts@3.4.0/dist/lightweight-charts.standalone.production.js"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">K-line Data Analysis</h1>
+            <div class="controls">
+                <div class="control-group">
+                    <select id="interval" class="interval-select">
+                        <option value="1m">1 Minute</option>
+                        <option value="5m">5 Minutes</option>
+                        <option value="1h">1 Hour</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button id="rsi-toggle">
+                        RSI
+                    </button>
+                    <button id="macd-toggle">
+                        MACD
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="charts-wrapper">
+            <div id="chart-container"></div>
+            <div id="rsi-container" class="indicator-container"></div>
+            <div id="macd-container" class="indicator-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const chartContainer = document.getElementById('chart-container');
+        const rsiContainer = document.getElementById('rsi-container');
+        const macdContainer = document.getElementById('macd-container');
+        
+        const chart = LightweightCharts.createChart(chartContainer, {
+            layout: {
+                background: { color: '#ffffff' },
+                textColor: '#1a1a1a',
+                fontSize: 12,
+            },
+            grid: {
+                vertLines: { color: '#f1f5f9' },
+                horzLines: { color: '#f1f5f9' },
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false,
+                borderColor: '#e2e8f0',
+            },
+            rightPriceScale: {
+                borderColor: '#e2e8f0',
+            },
+            crosshair: {
+                mode: LightweightCharts.CrosshairMode.Normal,
+                vertLine: {
+                    width: 1,
+                    color: '#94a3b8',
+                    style: LightweightCharts.LineStyle.Dashed,
+                },
+                horzLine: {
+                    width: 1,
+                    color: '#94a3b8',
+                    style: LightweightCharts.LineStyle.Dashed,
+                },
+            },
+        });
+
+        const candlestickSeries = chart.addCandlestickSeries({
+            upColor: '#26a69a',
+            downColor: '#ef5350',
+            borderVisible: false,
+            wickUpColor: '#26a69a',
+            wickDownColor: '#ef5350'
+        });
+
+        const rsiChart = LightweightCharts.createChart(rsiContainer, {
+            height: 120,
+            layout: {
+                background: { color: '#ffffff' },
+                textColor: '#1a1a1a',
+                fontSize: 12,
+            },
+            grid: {
+                vertLines: { color: '#f1f5f9' },
+                horzLines: { color: '#f1f5f9' },
+            },
+            timeScale: {
+                visible: true,
+                timeVisible: true,
+                secondsVisible: false,
+                borderColor: '#e2e8f0',
+            },
+            rightPriceScale: {
+                borderColor: '#e2e8f0',
+            },
+        });
+
+        const rsiSeries = rsiChart.addLineSeries({
+            color: '#2962FF',
+            lineWidth: 2,
+            crosshairMarkerVisible: true,
+            crosshairMarkerRadius: 4,
+        });
+
+        const macdChart = LightweightCharts.createChart(macdContainer, {
+            height: 120,
+            layout: {
+                background: { color: '#ffffff' },
+                textColor: '#1a1a1a',
+                fontSize: 12,
+            },
+            grid: {
+                vertLines: { color: '#f1f5f9' },
+                horzLines: { color: '#f1f5f9' },
+            },
+            timeScale: {
+                visible: true,
+                timeVisible: true,
+                secondsVisible: false,
+                borderColor: '#e2e8f0',
+            },
+            rightPriceScale: {
+                borderColor: '#e2e8f0',
+            },
+        });
+
+        const macdLineSeries = macdChart.addLineSeries({
+            color: '#2962FF',
+            lineWidth: 2,
+            crosshairMarkerVisible: true,
+            crosshairMarkerRadius: 4,
+        });
+
+        const signalLineSeries = macdChart.addLineSeries({
+            color: '#FF6B6B',
+            lineWidth: 2,
+            crosshairMarkerVisible: true,
+            crosshairMarkerRadius: 4,
+        });
+
+        const histogramSeries = macdChart.addHistogramSeries({
+            color: '#26a69a',
+            lineWidth: 2,
+        });
+
+        function processChartData(data) {
+            return data
+                .map(d => ({
+                    time: d.timestamp / 1000,
+                    open: parseFloat(d.open),
+                    high: parseFloat(d.high),
+                    low: parseFloat(d.low),
+                    close: parseFloat(d.close)
+                }))
+                .filter(d => d.open != null && d.high != null && d.low != null && d.close != null)
+                .sort((a, b) => a.time - b.time);
+        }
+
+        function processIndicatorData(data, valueKey) {
+            return data
+                .map(d => ({
+                    time: d.timestamp / 1000,
+                    value: d[valueKey]
+                }))
+                .filter(d => d.value != null)
+                .sort((a, b) => a.time - b.time);
+        }
+
+        async function fetchData(interval) {
+    try {
+        const response = await fetch(`/kline/${interval}`);
+        const data = await response.json();
+
+        if (Array.isArray(data) && data.length) {
+            const candleData = processChartData(data);
+            candlestickSeries.setData(candleData);
+        }
+
+        const rsiResponse = await fetch(`/indicators/rsi/${interval}`);
+        const rsiData = await rsiResponse.json();
+        if (Array.isArray(rsiData) && rsiData.length) {
+            const formattedRsiData = processIndicatorData(rsiData, 'rsi');
+            rsiSeries.setData(formattedRsiData);
+        }
+
+        const macdResponse = await fetch(`/indicators/macd/${interval}`);
+        const macdData = await macdResponse.json();
+        if (Array.isArray(macdData) && macdData.length) {
+            const formattedMacdData = processIndicatorData(macdData, 'macd');
+            const formattedSignalData = processIndicatorData(macdData, 'macd_signal');
+            const formattedHistogramData = macdData.map(d => ({
+                time: d.timestamp / 1000,
+                value: d.macd_histogram,
+                color: d.macd_histogram >= 0 ? '#26a69a' : '#ef5350'
+            }));
+
+            macdLineSeries.setData(formattedMacdData);
+            signalLineSeries.setData(formattedSignalData);
+            histogramSeries.setData(formattedHistogramData);
+        }
+
+        const mainTimeScale = chart.timeScale();
+        rsiChart.timeScale().setVisibleLogicalRange(mainTimeScale.getVisibleLogicalRange());
+        macdChart.timeScale().setVisibleLogicalRange(mainTimeScale.getVisibleLogicalRange());
+
+    } catch (error) {
+        console.error('Error fetching data:', error);
+    }
+}
+
+document.getElementById('interval').addEventListener('change', (e) => {
+    fetchData(e.target.value);
+});
+
+        document.getElementById('rsi-toggle').addEventListener('click', (e) => {
+            e.target.classList.toggle('active');
+            rsiContainer.style.display = e.target.classList.contains('active') ? 'block' : 'none';
+            updateChartSizes();
+        });
+
+        document.getElementById('macd-toggle').addEventListener('click', (e) => {
+            e.target.classList.toggle('active');
+            macdContainer.style.display = e.target.classList.contains('active') ? 'block' : 'none';
+            updateChartSizes();
+        });
+
+        function updateChartSizes() {
+    const chartsWrapper = document.querySelector('.charts-wrapper');
+    const containerWidth = chartsWrapper.clientWidth;
+    const containerHeight = chartsWrapper.clientHeight;
+
+    const visibleIndicators = [rsiContainer, macdContainer]
+        .filter(container => container.style.display === 'block')
+        .length;
+
+    const mainChartHeight = containerHeight - (visibleIndicators * 130);
+
+    chart.applyOptions({ width: containerWidth, height: mainChartHeight });
+    rsiChart.applyOptions({ width: containerWidth });
+    macdChart.applyOptions({ width: containerWidth });
+
+    const mainTimeScale = chart.timeScale();
+    rsiChart.timeScale().setVisibleLogicalRange(mainTimeScale.getVisibleLogicalRange());
+    macdChart.timeScale().setVisibleLogicalRange(mainTimeScale.getVisibleLogicalRange());
+}
+
+        document.getElementById('interval').addEventListener('change', (e) => {
+            fetchData(e.target.value);
+        });
+
+        function updateChartSizes() {
+            const chartsWrapper = document.querySelector('.charts-wrapper');
+            const containerWidth = chartsWrapper.clientWidth;
+            const containerHeight = chartsWrapper.clientHeight;
+            
+            const visibleIndicators = [
+                rsiContainer.style.display === 'block',
+                macdContainer.style.display === 'block'
+            ].filter(Boolean).length;
+
+            const mainChartHeight = containerHeight - (visibleIndicators * 130);
+            
+            chart.applyOptions({ 
+                width: containerWidth,
+                height: mainChartHeight
+            });
+            
+            rsiChart.applyOptions({ width: containerWidth });
+            macdChart.applyOptions({ width: containerWidth });
+        }
+
+        fetchData('1m');
+
+        window.addEventListener('resize', updateChartSizes);
+
+        updateChartSizes();
+    </script>
+</body>
+</html>
